@@ -1,0 +1,110 @@
+# Copyright (C) 2024-2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+---
+- name: Deploy Generate Enterprise
+  hosts: "{{ inference_delegate | default('kube_control_plane') }}"
+  gather_facts: false
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  environment: "{{ proxy_disable_env | default(env_proxy | default({})) }}"
+  vars_files:
+    - "{{ lookup('env', 'PWD') }}/config/vars/inference_common.yml"
+    - "{{ lookup('env', 'PWD') }}/config/vars/inference_delegate.yml"
+    - "{{ lookup('env', 'PWD') }}/config/vars/inference_generate_enterprise.yml"
+    - "{{ lookup('env', 'PWD') }}/config/vault.yml"
+
+  roles:
+    - role: inference-tools
+  tasks:
+    - name: Create Namespace for Generate Enterprise
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: generate-enterprise
+      run_once: true
+    - name: Create Image Pull Secret for Generate Enterprise
+      community.kubernetes.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: generate-reg-cred
+            namespace: generate-enterprise
+          type: kubernetes.io/dockerconfigjson
+          stringData:
+            .dockerconfigjson: |
+              {
+                "auths": {
+                  "https://index.docker.io/v1/": {
+                    "username": "{{ generate_enterprise_docker_user }}",
+                    "password": "{{ generate_enterprise_docker_password }}"
+                  }
+                }
+              }
+      register: kubectl_output
+      run_once: true
+    - name: Image Pull Secret Create
+      debug:
+        msg: "Secret generate-reg-cred created."
+      run_once: true
+    - name: Copy Dependency Files Message
+      debug:
+        msg: "Copying dependency files to the nodes please wait..."
+      run_once: true
+    - name: Ensure Remote Directory Exists
+      ansible.builtin.file:
+        path: "{{ remote_helm_charts_base }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      run_once: true
+    - name: Sync dependency files to Deployment Nodes
+      ansible.posix.synchronize:
+        src: "{{ item.src }}/"
+        dest: "{{ item.dest }}/"
+        recursive: yes
+        delete: no
+        mode: push
+      loop:
+        - {
+            src: "{{ helm_charts_base_generate_enterprise }}",
+            dest: "{{ remote_helm_charts_base }}/generate-enterprise",
+          }
+      run_once: true
+    - name: Install Generate Enterprise
+      command: >
+        helm dependency update {{ remote_helm_charts_base }}/generate-enterprise
+      register: generate_enterprise_deps
+      run_once: true
+    # - name: Install Generate Enterprise
+    #   command: >
+    #     helm upgrade --install genai-gateway {{ remote_helm_charts_base }}/generate-enterprise
+    #     --namespace generate-enterprise
+    #     --create-namespace
+    #     --set generateenterprise.host={{ generate_enterprise_host }}
+    #     --set generateenterprise.llmUrl={{ generate_enterprise_llm_url }}
+    #     -f {{ remote_helm_charts_base }}/generate-enterprise/values.yaml
+    #   run_once: true
+    - name: Install Generate Enterprise
+      command: >
+        helm upgrade --install genai-gateway {{ remote_helm_charts_base }}/generate-enterprise
+        --namespace generate-enterprise
+        --create-namespace
+        -f {{ remote_helm_charts_base }}/generate-enterprise/values.yaml
+      run_once: true
+    - name: Wait for Generate Enterprise Pods to be Ready
+      shell: |
+        kubectl get pods -n generate-enterprise -o json | jq -r '
+          .items[] |
+          select(.status.phase != "Running" or (.status.containerStatuses[] | select(.ready != true))) |
+          .metadata.name' | wc -l
+      register: pod_status
+      until: pod_status.stdout == "0" and pod_status.rc == 0
+      retries: 60
+      delay: 10
+      failed_when: pod_status.rc != 0 and pod_status.stdout != "0"
+      run_once: true

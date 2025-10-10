@@ -1,0 +1,150 @@
+# ConfigMap for embedded etcd config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ .Release.Name }}-milvus-etcd-config"
+data:
+  embedEtcd.yaml: |
+    listen-client-urls: http://0.0.0.0:2379
+    advertise-client-urls: http://0.0.0.0:2379
+    quota-backend-bytes: 4294967296
+    auto-compaction-mode: revision
+    auto-compaction-retention: '1000'
+---
+# ConfigMap for user Milvus config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ .Release.Name }}-milvus-user-config"
+data:
+  user.yaml: |
+    # Extra config to override default milvus.yaml
+    common:
+      storageType: local
+---
+# PersistentVolume for Milvus
+# apiVersion: v1
+# kind: PersistentVolume
+# metadata:
+#   name: "{{ .Release.Name }}-milvus-pv"
+# spec:
+#   capacity:
+#     storage: 5Gi
+#   accessModes:
+#     - ReadWriteOnce
+#   hostPath:
+#     path: "/data/{{ .Values.storage.dataFolder }}/milvus"
+#     type: DirectoryOrCreate
+# ---
+# PersistentVolumeClaim for Milvus
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ .Release.Name }}-milvus-pvc"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+# StatefulSet for Milvus Standalone
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: "{{ .Release.Name }}-milvus-standalone"
+spec:
+  serviceName: "{{ .Release.Name }}-milvus-standalone"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Release.Name }}-milvus-standalone"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-milvus-standalone"
+    spec:
+      containers:
+        - name: "{{ .Release.Name }}-milvus-standalone"
+          image: "{{ .Values.milvus.image }}:{{ .Values.milvus.tag }}"
+          resources:
+            # requests:
+            #   cpu: "500m"
+            #   memory: "500Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          args: ["milvus", "run", "standalone"]
+          env:
+            - name: ETCD_USE_EMBED
+              value: "true"
+            - name: ETCD_DATA_DIR
+              value: "/var/lib/milvus/etcd"
+            - name: ETCD_CONFIG_PATH
+              value: "/milvus/configs/embedEtcd.yaml"
+            - name: COMMON_STORAGETYPE
+              value: "local"
+          ports:
+            - containerPort: {{ .Values.milvus.ports.milvus.targetPort }}
+              name: "milvus"
+            - containerPort: {{ .Values.milvus.ports.metrics.targetPort }}
+              name: "metrics"
+            - containerPort: {{ .Values.milvus.ports.etcd.targetPort }}
+              name: "etcd"
+          volumeMounts:
+            - name: milvus-storage
+              mountPath: /var/lib/milvus
+            - name: "{{ .Release.Name }}-etcd-config"
+              mountPath: /milvus/configs/embedEtcd.yaml
+              subPath: embedEtcd.yaml
+            - name: "{{ .Release.Name }}-user-config"
+              mountPath: /milvus/configs/user.yaml
+              subPath: user.yaml
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9091
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            timeoutSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9091
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            timeoutSeconds: 20
+            failureThreshold: 3
+          securityContext:
+            seccompProfile:
+              type: Unconfined
+      volumes:
+        - name: milvus-storage
+          persistentVolumeClaim:
+            claimName: "{{ .Release.Name }}-milvus-pvc"
+        - name: "{{ .Release.Name }}-etcd-config"
+          configMap:
+            name: "{{ .Release.Name }}-milvus-etcd-config"
+        - name: "{{ .Release.Name }}-user-config"
+          configMap:
+            name: "{{ .Release.Name }}-milvus-user-config"
+---
+# ClusterIP Service for Milvus
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Release.Name }}-milvus-svc"
+spec:
+  selector:
+    app: "{{ .Release.Name }}-milvus-standalone"
+  ports:
+    - port: {{ .Values.milvus.ports.milvus.port }}
+      targetPort: {{ .Values.milvus.ports.milvus.targetPort }}
+      name: "milvus"
+    - port: {{ .Values.milvus.ports.metrics.port }}
+      targetPort: {{ .Values.milvus.ports.metrics.targetPort }}
+      name: "metrics"
+    - port: {{ .Values.milvus.ports.etcd.port }}
+      targetPort: {{ .Values.milvus.ports.etcd.targetPort }}
+      name: "etcd"

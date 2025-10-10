@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-docworker"
+  labels:
+    app: "{{ .Release.Name }}-docworker"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Release.Name }}-docworker"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-docworker"
+    spec:
+      imagePullSecrets:
+        - name: generate-reg-cred
+      initContainers:
+        - name: "{{ .Release.Name }}-wait-for-dependencies"
+          image: busybox
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for MySQL..."
+              until nc -z {{ .Release.Name }}-mysql-svc {{ .Values.mysql.port }}; do sleep 2; done
+              echo "All services are up!"
+      containers:
+        - name: "{{ .Release.Name }}-docworker"
+          image: "{{ .Values.docworker.image }}:{{ .Values.docworker.tag }}"
+          resources:
+            # requests:
+            #   cpu: "1"
+            #   memory: "1Gi"
+            limits:
+              cpu: "4"
+              memory: "2Gi"
+          env:
+            - name: CELERY_BROKER_URL
+              value: "redis://{{ .Release.Name }}-redis:6379/0"
+            - name: CELERY_RESULT_BACKEND
+              value: "redis://{{ .Release.Name }}-redis:6379/0"
+            - name: VDB_CLIENT_URL
+              value: "http://{{ .Release.Name }}-milvus-svc:19530"
+            - name: MYSQL_HOST
+              value: "{{ .Release.Name }}-mysql-svc"
+            - name: MYSQL_PORT
+              value: "3306"
+            - name: STATUS_ENDPOINT
+              value: "http://{{ .Release.Name }}-generate-enterprise-service:1881/api/v1/integration/notify"
+            - name: STATUS_API_KEY
+              value: "CKAzNvUmPLy5jaBz2dVJz6r24KdThqms6bGxtX21hbm"
+            - name: DOCLING_SERVE_URL
+              value: "{{ .Values.generateenterprise.doclingUrl }}/v1alpha"
+          volumeMounts:
+            - name: "{{ .Release.Name }}-shared-volume"
+              mountPath: /mnt
+      volumes:
+        - name: "{{ .Release.Name }}-shared-volume"
+          persistentVolumeClaim:
+            claimName: "{{ .Release.Name }}-shared-pvc"

@@ -1,0 +1,40 @@
+mysql:
+  image: "iterateai/generate-enterprise-mysql"
+  tag: "stable-2025-09-26"
+  rootPassword: Iterate411$
+  port: 3306
+  targetPort: 3306
+
+milvus:
+  image: "milvusdb/milvus"
+  tag: "v2.5.11"
+  ports:
+    milvus: 
+      port: 19530
+      targetPort: 19530
+    metrics: 
+      port: 9091
+      targetPort: 9091
+    etcd: 
+      port: 2379
+      targetPort: 2379
+
+generateenterprise:
+  image: "iterateai/generate-enterprise"
+  tag: "stable-2025-10-08"
+  llmUrl: ""
+  doclingUrl: ""
+  port: 1881
+  targetPort: 1881
+  host: ""
+
+redis:
+  image: "redis"
+  tag: "8.0.2"
+
+docworker:
+  image: "iterateai/generate-enterprise-extractor"
+  tag: "stable-2025-10-01"
+
+# storage:
+#   dataFolder: "data-folder"

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Release.Name }}-generate-enterprise-service"
+spec:
+  selector:
+    app: "{{ .Release.Name }}-generate-enterprise"
+  ports:
+  - name: "generate-enterprise"
+    protocol: TCP
+    port: {{ .Values.generateenterprise.port }}          
+    targetPort: {{ .Values.generateenterprise.targetPort }}
