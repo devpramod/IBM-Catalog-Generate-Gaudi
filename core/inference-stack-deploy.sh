@@ -951,7 +951,7 @@ deploy_generate_enterprise_playbook() {
     echo "************************************"  
 
     ansible-playbook -i "${INVENTORY_PATH}" playbooks/deploy-generate_enterprise.yml \
-        --extra-vars "generate_enterprise_docker_user=${generate_enterprise_docker_user} generate_enterprise_docker_password=${generate_enterprise_docker_password} "
+        --extra-vars "ingress_host=${cluster_url} cert_file=${cert_file} key_file=${key_file} llm_url=${cluster_url} generate_enterprise_docker_user=${generate_enterprise_docker_user} generate_enterprise_docker_password=${generate_enterprise_docker_password} "
 }
 
 deploy_inference_llm_models_playbook() {

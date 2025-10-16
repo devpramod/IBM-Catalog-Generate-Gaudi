@@ -15,6 +15,10 @@
   roles:
     - role: inference-tools
   tasks:
+    - name: Output config
+      debug:
+        var: cert_file, key_file, ingress_host, llm_url
+      run_once: true
     - name: Create Namespace for Generate Enterprise
       kubernetes.core.k8s:
         state: present
@@ -23,6 +27,25 @@
           kind: Namespace
           metadata:
             name: generate-enterprise
+      run_once: true
+    - name: Create TLS secret for Generate Enterprise
+      community.kubernetes.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: generate-tls-secret
+            namespace: generate-enterprise
+          type: kubernetes.io/tls
+          data:
+            tls.crt: "{{ lookup('file', cert_file) | b64encode }}"
+            tls.key: "{{ lookup('file', key_file) | b64encode }}"
+      register: kubectl_output
+      run_once: true
+    - name: TLS Create
+      debug:
+        msg: "Secret generate-tls-secret created."
       run_once: true
     - name: Create Image Pull Secret for Generate Enterprise
       community.kubernetes.k8s:
@@ -80,20 +103,13 @@
         helm dependency update {{ remote_helm_charts_base }}/generate-enterprise
       register: generate_enterprise_deps
       run_once: true
-    # - name: Install Generate Enterprise
-    #   command: >
-    #     helm upgrade --install ge1 {{ remote_helm_charts_base }}/generate-enterprise
-    #     --namespace generate-enterprise
-    #     --create-namespace
-    #     --set generateenterprise.host={{ generate_enterprise_host }}
-    #     --set generateenterprise.llmUrl={{ generate_enterprise_llm_url }}
-    #     -f {{ remote_helm_charts_base }}/generate-enterprise/values.yaml
-    #   run_once: true
     - name: Install Generate Enterprise
       command: >
         helm upgrade --install ge1 {{ remote_helm_charts_base }}/generate-enterprise
         --namespace generate-enterprise
         --create-namespace
+        --set ingress.host={{ ingress_host }}
+        --set generateenterprise.llmUrl={{ llm_url }}
         -f {{ remote_helm_charts_base }}/generate-enterprise/values.yaml
       run_once: true
     - name: Wait for Generate Enterprise Pods to be Ready
