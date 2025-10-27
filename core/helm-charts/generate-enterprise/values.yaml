@@ -21,7 +21,7 @@ milvus:
 
 generateenterprise:
   image: "iterateai/generate-enterprise"
-  tag: "stable-2025-10-08"
+  tag: "release-ibm-generate-v3.3.3"
   llmUrl: ""
   doclingUrl: ""
   port: 1881

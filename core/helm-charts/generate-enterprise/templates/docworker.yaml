@@ -48,7 +48,7 @@ spec:
             - name: MYSQL_PORT
               value: "3306"
             - name: STATUS_ENDPOINT
-              value: "http://{{ .Release.Name }}-generate-enterprise-service:1881/api/v1/integration/notify"
+              value: "http://{{ .Release.Name }}-generate-enterprise-service:1881/generate/api/v1/integration/notify"
             - name: STATUS_API_KEY
               value: "CKAzNvUmPLy5jaBz2dVJz6r24KdThqms6bGxtX21hbm"
             - name: DOCLING_SERVE_URL
