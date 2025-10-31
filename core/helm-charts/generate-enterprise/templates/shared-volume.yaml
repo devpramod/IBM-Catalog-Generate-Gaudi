@@ -4,7 +4,7 @@ metadata:
   name: "{{ .Release.Name }}-shared-pvc"
 spec:
   accessModes:
-    - ReadWriteOnce
+    - {{ .Values.storage.accessMode }}
   resources:
     requests:
       storage: 10Gi

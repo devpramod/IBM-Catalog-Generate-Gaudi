@@ -17,7 +17,7 @@
   tasks:
     - name: Output config
       debug:
-        var: cert_file, key_file, ingress_host, llm_url
+        var: cert_file, key_file, ingress_host, storage_access_mode
       run_once: true
     - name: Create Namespace for Generate Enterprise
       kubernetes.core.k8s:
@@ -109,7 +109,8 @@
         --namespace generate-enterprise
         --create-namespace
         --set ingress.host={{ ingress_host }}
-        --set generateenterprise.llmUrl={{ llm_url }}
+        --set generateenterprise.llmApiKey={{ litellm_master_key }}
+        --set storage.accessMode={{ storage_access_mode }}
         -f {{ remote_helm_charts_base }}/generate-enterprise/values.yaml
       run_once: true
     - name: Wait for Generate Enterprise Pods to be Ready

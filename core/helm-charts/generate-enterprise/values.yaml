@@ -21,8 +21,10 @@ milvus:
 
 generateenterprise:
   image: "iterateai/generate-enterprise"
-  tag: "release-ibm-generate-v3.3.3"
-  llmUrl: ""
+  tag: "release-ibm-generate-v3.3.4"
+  llmUrl: "http://genai-gateway-service.genai-gateway.svc.cluster.local:4000"
+  llmModel: "Qwen/Qwen2.5-72B-Instruct"
+  llmApiKey: ""
   doclingUrl: ""
   port: 1881
   targetPort: 1881
@@ -39,5 +41,5 @@ docworker:
   image: "iterateai/generate-enterprise-extractor"
   tag: "stable-2025-10-01"
 
-# storage:
-#   dataFolder: "data-folder"
+storage:
+  accessMode: ReadWriteOnce

@@ -41,6 +41,10 @@ spec:
             value:  {{ .Values.mysql.port | quote }}
           - name: LLMURL
             value: {{ .Values.generateenterprise.llmUrl | quote }}
+          - name: LLMMODEL
+            value: {{ .Values.generateenterprise.llmModel | quote }}
+          - name: LLMAPIKEY
+            value: {{ .Values.generateenterprise.llmApiKey | quote }}
         ports:
         - containerPort: {{ .Values.generateenterprise.targetPort }}
         volumeMounts:

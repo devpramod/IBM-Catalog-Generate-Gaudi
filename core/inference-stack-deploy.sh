@@ -950,8 +950,14 @@ deploy_generate_enterprise_playbook() {
     echo "Deploying Generate Enterprise playbook..."
     echo "************************************"  
 
+    if [ "$deploy_ceph" == "yes" ]; then
+        generate_enterprise_storage_accessmode="ReadWriteMany"        
+    else
+        generate_enterprise_storage_accessmode="ReadWriteOnce"        
+    fi
+
     ansible-playbook -i "${INVENTORY_PATH}" playbooks/deploy-generate_enterprise.yml \
-        --extra-vars "ingress_host=${cluster_url} cert_file=${cert_file} key_file=${key_file} llm_url=${cluster_url} generate_enterprise_docker_user=${generate_enterprise_docker_user} generate_enterprise_docker_password=${generate_enterprise_docker_password} "
+        --extra-vars "ingress_host=${cluster_url} cert_file=${cert_file} key_file=${key_file} storage_access_mode=${generate_enterprise_storage_accessmode} generate_enterprise_docker_user=${generate_enterprise_docker_user} generate_enterprise_docker_password=${generate_enterprise_docker_password} "
 }
 
 deploy_inference_llm_models_playbook() {
